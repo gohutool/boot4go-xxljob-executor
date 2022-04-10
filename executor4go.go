@@ -375,6 +375,11 @@ type Options struct {
 	executorImpl executor
 }
 
+var (
+	DefaultExecutorPort = "9999"
+	DefaultRegistryKey  = "executor4go"
+)
+
 func newOptions(opts ...Option) Options {
 	opt := Options{
 		ExecutorIp:   ipv4.LocalIP(),
@@ -394,11 +399,6 @@ func newOptions(opts ...Option) Options {
 }
 
 type Option func(o *Options)
-
-var (
-	DefaultExecutorPort = "9999"
-	DefaultRegistryKey  = "golang-jobs"
-)
 
 // ServerAddr 设置调度中心地址
 func ServerAddr(addr string) Option {
