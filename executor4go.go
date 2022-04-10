@@ -63,15 +63,20 @@ func newExecutor(opts ...Option) executor {
 	options := newOptions(opts...)
 
 	if options.executorImpl == nil {
-		exec := &RestFulExecutor{}
-		exec.opts = options
-		return exec
+		// 变相的抽象类的实现
+		e := &RestFulExecutor{}
+		e.wrap(e)
+
+		e.opts = options
+		return e
 	} else {
 		return options.executorImpl
 	}
 }
 
 type Executor struct {
+
+	// private
 	opts    Options
 	address string
 	regList *taskPool //注册任务列表
@@ -79,6 +84,13 @@ type Executor struct {
 	log     log4go.Logger
 
 	logHandler LogHandler //日志查询handler
+
+	// inner
+	_impl executor
+}
+
+func (e *Executor) wrap(_wrap executor) {
+	e._impl = _wrap
 }
 
 func (e *Executor) Init(opts ...Option) {
@@ -160,6 +172,7 @@ func (e *Executor) RunTask(param *RunReq,
 	return task, nil
 }
 
+// 变相的实现抽象类， 一下抽象类不进行实现的方法，使用_wrap进行调用，_wrap为具体的实现类
 /*****************  interface methods, will be implemented by One Executor's sub class  *********************/
 
 // Run 运行执行器引擎
@@ -172,25 +185,28 @@ beat
 idleBeat
 */
 func (e *Executor) Run() error {
-	return nil
+	return e._impl.Run()
 }
 
 func (e *Executor) RequestCallback(task *Task, code int64, msg string) {
-
+	e._impl.RequestCallback(task, code, msg)
 }
 
 // Stop 停止服务
 func (e *Executor) Stop() {
+	e._impl.Stop()
+
 	e.UnRegistry()
 }
 
 // Registry 注册执行器到调度中心
 func (e *Executor) Registry() {
+	e._impl.Registry()
 }
 
 // UnRegistry 从调度中心在注销执行器
 func (e *Executor) UnRegistry() error {
-	return nil
+	return e._impl.UnRegistry()
 }
 
 //通用响应

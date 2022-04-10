@@ -27,8 +27,7 @@ import (
 
 type RestFulExecutor struct {
 	Executor
-	mu      sync.RWMutex
-	handler LogHandler
+	mu sync.RWMutex
 }
 
 func (e *RestFulExecutor) Run() (err error) {
@@ -76,7 +75,8 @@ func (e *RestFulExecutor) Registry() {
 		e.log.Critical("执行器注册信息解析失败:" + err.Error())
 	}
 	for {
-		<-t.C
+		t1 := <-t.C
+		t1.String()
 		t.Reset(time.Second * time.Duration(20)) //20秒心跳防止过期
 		func() {
 			result, err := e.post("/api/registry", string(param))
