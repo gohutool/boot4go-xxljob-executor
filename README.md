@@ -138,13 +138,14 @@ golang-jobs	golang执行器	自动注册 		查看 ( 1 ）
 ```
 View->Registered Nodes
 ```
-http://127.0.0.1:9999
+http://192.168.56.1:9999
 ```
 ### Add Tasks
 Task management - > Add (note that the bean mode is used, and the name of jobhandler is the same as that of regtask)
 ```
-1	测试panic	BEAN：task.panic	* 0 * * * ?	admin	STOP	
-2	测试耗时任务	BEAN：task.test2	* * * * * ?	admin	STOP	
-3	测试golang	BEAN：task.test		* * * * * ?	admin	STOP
+1	测试简单任务	BEAN：task.simple	    * 0 * * * ?	admin	STOP	
+2	测试耗时任务	BEAN：task.longTime	    * * * * * ?	admin	STOP	
+3	测试异常任务	BEAN：task.panic		* * * * * ?	admin	STOP
+4	测试错误任务	BEAN：task.exception	* * * * * ?	admin	STOP
 ```
 
