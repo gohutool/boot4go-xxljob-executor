@@ -26,18 +26,22 @@ import (
 )
 
 func main() {
-	exec := executor4go.NewExecutor(
-		executor4go.ServerAddr("http://127.0.0.1/xxl-job-admin"),
-		executor4go.AccessToken(""),            //请求令牌(默认为空)
-		executor4go.ExecutorIp("127.0.0.1"),    //可自动获取
-		executor4go.ExecutorPort("9999"),       //默认9999（非必填）
-		executor4go.RegistryKey("golang-jobs"), //执行器名称
-		executor4go.SetLogger(&logger{}),       //自定义日志
+	log4go.LoggerManager.InitWithDefaultConfig()
+	logger := log4go.LoggerManager.GetLogger("gohutool.executor4go.examples")
+
+	exec := NewExecutor(
+		ServerAddr("http://192.106.56.101/xxl-job-admin"),
+		AccessToken(""),            //请求令牌(默认为空)
+		ExecutorIp("192.106.56.1"), //可自动获取
+		ExecutorPort("9999"),       //默认9999（非必填）
+		RegistryKey("golang-jobs"), //执行器名称
+		SetLogger(logger),          //自定义日志
 	)
-	executor4go.Init()
+	
+		exec.Init()
 	//设置日志查看handler
-	executor4go.LogHandler(func(req *executor4go.LogReq) *executor4go.LogRes {
-		return &executor4go.LogRes{Code: 200, Msg: "", Content: executor4go.LogResContent{
+	exec.SetLogHandler(func(req *LogReq) *LogRes {
+		return &LogRes{Code: 200, Msg: "", Content: LogResContent{
 			FromLineNum: req.FromLineNum,
 			ToLineNum:   2,
 			LogContent:  "这个是自定义日志handler",
@@ -45,23 +49,79 @@ func main() {
 		}}
 	})
 	//注册任务handler
-	executor4go.RegTask("task.test", task.Test)
-	executor4go.RegTask("task.test2", task.Test2)
-	executor4go.RegTask("task.panic", task.Panic)
-	log.Fatal(executor4go.Run())
+	exec.RegTask("task.simple", SimpleTask)
+	exec.RegTask("task.longTime", LongTimeTask)
+	exec.RegTask("task.panic", PanicTask)
+	exec.RegTask("task.exception", ExceptionTask)
+
+	logger.Info(exec.Run())
 }
 
-//Logger接口实现
-type logger struct{}
+```
 
-func (l *logger) Info(format string, a ...interface{}) {
-	fmt.Println(fmt.Sprintf("自定义日志 - "+format, a...))
-}
+启动日志
 
-func (l *logger) Error(format string, a ...interface{}) {
-	log.Println(fmt.Sprintf("自定义日志 - "+format, a...))
+```
+[18:40:58 CST 2022/04/10 583] [INFO][gohutool.executor4go.examples] (github.com/gohutool/boot4go-xxljob-executor.(*Executor).Init:112) executor4go-v1.0.0 192.106.56.1:9999
+[18:40:58 CST 2022/04/10 583] [INFO][gohutool.executor4go.examples] (github.com/gohutool/boot4go-xxljob-executor.(*RestFulExecutor).Run:49) Starting server at 192.106.56.1:9999
+[18:41:33 CST 2022/04/10 252] [EROR][gohutool.executor4go.examples] (github.com/gohutool/boot4go-xxljob-executor.(*RestFulExecutor).Registry.func1:84) 执行器注册失败1:Post "http
+://192.106.56.101/xxl-job-admin/api/registry": dial tcp 192.106.56.101:80: connectex: A connection attempt failed because the connected party did not properly respond after a pe
+riod of time, or established connection failed because connected host has failed to respond.
+
+```
+
+```
+    func SimpleTask(cxt context.Context, param *RunReq) (string, error) {
+        fmt.Println("test one task" + param.ExecutorHandler + " param：" +
+        param.ExecutorParams + " log_id:" + Int64ToStr(param.LogID))
+        return "test done", nil
+    }
+    
+    func PanicTask(cxt context.Context, param *RunReq) (string, error) {
+        panic("test one task" + param.ExecutorHandler + " param：" +
+        param.ExecutorParams + " log_id:" + Int64ToStr(param.LogID))
+    }
+    
+    func ExceptionTask(cxt context.Context, param *RunReq) (string, error) {
+        return "", errors.New("test one task" + param.ExecutorHandler +
+        " param：" + param.ExecutorParams + " log_id:" + Int64ToStr(param.LogID))
+    }
+```
+
+```
+func LongTimeTask(cxt context.Context, param *RunReq) (string, error) {
+    
+    ....
+
+	for {
+		select {
+		case <-cxt.Done():
+			fmt.Println("task" + param.ExecutorHandler + "被手动终止")
+			return fmt.Sprintf("task"+param.ExecutorHandler+"被手动终止, 执行次数%d 返回值为%d", num, rtn), nil
+		default:
+			num++
+
+			rtn++
+
+			time.Sleep(time.Duration(interval) * time.Second)
+
+			fmt.Printf("test one task"+param.ExecutorHandler+" param："+param.ExecutorParams+" 执行次数%d 值为%d\n",
+				num, rtn)
+
+			if num > times {
+				fmt.Printf("test one task"+param.ExecutorHandler+
+					" param："+param.ExecutorParams+"执行完毕, 执行次数%d 值为%d！\n", num, rtn)
+				return fmt.Sprintf("test one task"+param.ExecutorHandler+
+					" param："+param.ExecutorParams+"执行完毕, 执行次数%d 值为%d！\n", num, rtn), nil
+			}
+		}
+	}
+	
+	....
+
 }
 ```
+
 # 示例项目
 github.com/gohutool/boot4go-xxljob-executor/examples/
 
