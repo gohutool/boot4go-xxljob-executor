@@ -22,9 +22,9 @@ func main() {
 	logger := log4go.LoggerManager.GetLogger("gohutool.executor4go.examples")
 
 	exec := NewExecutor(
-		ServerAddr("http://192.106.56.101:18080/xxl-job-admin"),
+		ServerAddr("http://192.168.56.101:18080/xxl-job-admin"),
 		AccessToken(""),            //请求令牌(默认为空)
-		ExecutorIp("192.106.56.1"), //可自动获取
+		ExecutorIp("192.168.56.1"), //可自动获取
 		ExecutorPort("9999"),       //默认9999（非必填）
 		RegistryKey("executor4go"), //执行器名称
 		SetLogger(logger),          //自定义日志
