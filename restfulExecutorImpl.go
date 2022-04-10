@@ -104,7 +104,7 @@ func (e *RestFulExecutor) Registry() {
 
 // UnRegistry
 // 从调度中心在注销执行器
-func (e *RestFulExecutor) UnRegistry() {
+func (e *RestFulExecutor) UnRegistry() error {
 	t := time.NewTimer(time.Second * 0) //初始立即执行
 	defer t.Stop()
 	req := &Registry{
@@ -115,16 +115,17 @@ func (e *RestFulExecutor) UnRegistry() {
 	param, err := json.Marshal(req)
 	if err != nil {
 		e.log.Error("执行器摘除失败:" + err.Error())
-		return
+		return err
 	}
 	res, err := e.post("/api/registryRemove", string(param))
 	if err != nil {
 		e.log.Error("执行器摘除失败:" + err.Error())
-		return
+		return err
 	}
 	body, err := ioutil.ReadAll(res.Body)
 	e.log.Info("执行器摘除成功:" + string(body))
 	_ = res.Body.Close()
+	return nil
 }
 
 // RequestCallback

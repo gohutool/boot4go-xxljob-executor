@@ -32,32 +32,40 @@ const (
 
 // executor 执行器
 type executor interface {
+	// Init
+	// 初始化执行器
+	Init(opts ...Option)
 	// Run 启动服务
 	Run() error
 	// Registry 注册执行器到调度中心
-	Registry() error
-	// Unregistry 从调度中心在注销执行器
-	Unregistry() error
+	Registry()
+	// UnRegistry 从调度中心在注销执行器
+	UnRegistry() error
 	// SetLogHandler 日志handler
 	SetLogHandler(handler LogHandler)
 	// Stop 停止服务
 	Stop()
 	// RequestCallback 执行后回调请求给调度中心
 	RequestCallback(task *Task, code int64, msg string)
+	// RegTask
+	// 注册任务
+	RegTask(pattern string, task TaskFunc)
 }
 
 // NewExecutor 创建执行器
-func NewExecutor(opts ...Option) *Executor {
+func NewExecutor(opts ...Option) executor {
 	return newExecutor(opts...)
 }
 
-func newExecutor(opts ...Option) *Executor {
+func newExecutor(opts ...Option) executor {
+	//var exec executor
+
 	options := newOptions(opts...)
 
 	if options.executorImpl == nil {
 		exec := &RestFulExecutor{}
 		exec.opts = options
-		return interface{}(exec).(*Executor)
+		return exec
 	} else {
 		return options.executorImpl
 	}
@@ -177,8 +185,7 @@ func (e *Executor) Stop() {
 }
 
 // Registry 注册执行器到调度中心
-func (e *Executor) Registry() error {
-	return nil
+func (e *Executor) Registry() {
 }
 
 // UnRegistry 从调度中心在注销执行器
@@ -349,7 +356,7 @@ type Options struct {
 	LogDir       string        `json:"log_dir"`       //日志目录
 
 	logger       log4go.Logger //日志
-	executorImpl *Executor
+	executorImpl executor
 }
 
 func newOptions(opts ...Option) Options {
