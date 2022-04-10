@@ -5,7 +5,6 @@ import (
 	"fmt"
 	. "github.com/gohutool/boot4go-xxljob-executor/utils"
 	"github.com/gohutool/log4go"
-	"runtime/debug"
 )
 
 /**
@@ -39,10 +38,12 @@ type TaskFunc func(cxt context.Context, param *RunReq) string
 
 // Run 运行任务
 func (t *Task) Run(callback func(code int64, msg string)) {
+	// cancel 实现长时间任务的Kill功能， 在长任务的Task中要配合cxt.Done():进行强行中断
+	// 可参考/exmpales/task/long_task.go
 	defer func(cancel func()) {
 		if err := recover(); err != nil {
-			t.log.Info(t.Info()+" panic: %v", err)
-			debug.PrintStack() //堆栈跟踪
+			t.log.Error(t.Info()+" panic: %v", err)
+			//debug.PrintStack() //堆栈跟踪
 			callback(500, "task panic:"+fmt.Sprintf("%v", err))
 			cancel()
 		}

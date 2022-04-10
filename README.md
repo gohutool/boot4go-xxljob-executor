@@ -5,7 +5,7 @@ golang for xxl-job executor support
 ![license](https://img.shields.io/badge/license-Apache--2.0-green.svg)
 
 Java and go development coexist in many companies. XXL-job is used as the task scheduling engine in Java. Therefore, go executor (client) also appears, which is relatively simple to use:
-# 支持
+# Feature
 ```	
 1. Executor registration
 2. Time consuming task cancellation
