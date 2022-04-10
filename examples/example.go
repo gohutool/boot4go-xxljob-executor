@@ -1,4 +1,4 @@
-package examples
+package main
 
 import (
 	. "github.com/gohutool/boot4go-xxljob-executor"
