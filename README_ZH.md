@@ -20,8 +20,8 @@ package main
 
 import (
 	"fmt"
-	xxl "github.com/xxl-job/xxl-job-executor-go"
-	"github.com/xxl-job/xxl-job-executor-go/example/task"
+	executor4go "github.com/gohutool/boot4go-xxljob-executor"
+	"github.com/gohutool/boot4go-xxljob-executor/examples/task"
 	"log"
 )
 
