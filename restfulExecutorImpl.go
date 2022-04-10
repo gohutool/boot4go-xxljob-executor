@@ -1,4 +1,4 @@
-package boot4go_xxljob_executor
+package executor4go
 
 import (
 	"encoding/json"
