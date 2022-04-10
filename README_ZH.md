@@ -130,7 +130,7 @@ github.com/gohutool/boot4go-xxljob-executor/examples/
 执行器管理->新增执行器,执行器列表如下：
 ```
 AppName		名称		注册方式	OnLine 		机器地址 		操作
-golang-jobs	golang执行器	自动注册 		查看 ( 1 ）   
+executor4go	golang执行器	自动注册 		查看 ( 1 ）   
 ```
 查看->注册节点
 ```
