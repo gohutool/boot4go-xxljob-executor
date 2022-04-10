@@ -94,6 +94,10 @@ func (e *Executor) Init(opts ...Option) {
 	go e.Registry()
 }
 
+func (e *Executor) SetLogHandler(logHandler LogHandler) {
+	e.logHandler = logHandler
+}
+
 // RegTask 注册任务
 func (e *Executor) RegTask(pattern string, task TaskFunc) {
 	var t = &Task{}
@@ -159,7 +163,8 @@ log
 beat
 idleBeat
 */
-func (e *Executor) Run() {
+func (e *Executor) Run() error {
+	return nil
 }
 
 func (e *Executor) RequestCallback(task *Task, code int64, msg string) {
@@ -277,7 +282,7 @@ type LogHandler func(req *LogReq) *LogRes
 /*****************  Command response  *********************/
 
 //执行任务回调
-func returnCall(req *RunReq, code int64, msg string) []byte {
+func returnCallBytes(req *RunReq, code int64, msg string) []byte {
 	data := call{
 		&callElement{
 			LogID:      req.LogID,
@@ -295,7 +300,7 @@ func returnCall(req *RunReq, code int64, msg string) []byte {
 }
 
 //杀死任务返回
-func returnKill(req *killReq, code int64) []byte {
+func returnKillBytes(req *killReq, code int64) []byte {
 	msg := ""
 	if code != 200 {
 		msg = "Task kill err"
@@ -309,7 +314,7 @@ func returnKill(req *killReq, code int64) []byte {
 }
 
 //忙碌返回
-func returnIdleBeat(code int64) []byte {
+func returnIdleBeatBytes(code int64) []byte {
 	msg := ""
 	if code != 200 {
 		msg = "Task is busy"
@@ -323,7 +328,7 @@ func returnIdleBeat(code int64) []byte {
 }
 
 //通用返回
-func returnGeneral() []byte {
+func returnGeneralBytes() []byte {
 	data := &res{
 		Code: 200,
 		Msg:  "",

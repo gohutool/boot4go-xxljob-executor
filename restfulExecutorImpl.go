@@ -131,7 +131,7 @@ func (e *RestFulExecutor) UnRegistry() {
 // 回调任务列表
 func (e *RestFulExecutor) RequestCallback(task *Task, code int64, msg string) {
 	e.runList.Del(Int64ToStr(task.Id))
-	res, err := e.post("/api/callback", string(returnCall(task.Param, code, msg)))
+	res, err := e.post("/api/callback", string(returnCallBytes(task.Param, code, msg)))
 	if err != nil {
 		e.log.Error("callback err : ", err.Error())
 		return
@@ -169,21 +169,21 @@ func (e *RestFulExecutor) runTask(writer http.ResponseWriter, request *http.Requ
 	param := &RunReq{}
 	err := json.Unmarshal(req, &param)
 	if err != nil {
-		_, _ = writer.Write(returnCall(param, 500, "params err"))
+		_, _ = writer.Write(returnCallBytes(param, 500, "params err"))
 		e.log.Error("参数解析错误:" + string(req))
 		return
 	}
 	e.log.Info("任务参数:%v", param)
 	if !e.regList.Exists(param.ExecutorHandler) {
-		_, _ = writer.Write(returnCall(param, 500, "Task not registered"))
+		_, _ = writer.Write(returnCallBytes(param, 500, "Task not registered"))
 		e.log.Error("任务[" + Int64ToStr(param.JobID) + "]没有注册:" + param.ExecutorHandler)
 		return
 	}
 
 	e.RunTask(param, func(task *Task, param *RunReq) {
-		_, _ = writer.Write(returnCall(param, 500, "There are tasks running"))
+		_, _ = writer.Write(returnCallBytes(param, 500, "There are tasks running"))
 	}, func(task *Task, param *RunReq) {
-		_, _ = writer.Write(returnGeneral())
+		_, _ = writer.Write(returnGeneralBytes())
 	})
 }
 
@@ -196,12 +196,12 @@ func (e *RestFulExecutor) killTask(writer http.ResponseWriter, request *http.Req
 	param := &killReq{}
 	_ = json.Unmarshal(req, &param)
 	if !e.runList.Exists(Int64ToStr(param.JobID)) {
-		_, _ = writer.Write(returnKill(param, 500))
+		_, _ = writer.Write(returnKillBytes(param, 500))
 		e.log.Error("任务[" + Int64ToStr(param.JobID) + "]没有运行")
 		return
 	}
 	e.CancelTask(param)
-	_, _ = writer.Write(returnGeneral())
+	_, _ = writer.Write(returnGeneralBytes())
 }
 
 // taskLog to route path /log
@@ -235,7 +235,7 @@ func (e *RestFulExecutor) taskLog(writer http.ResponseWriter, request *http.Requ
 // 心跳检测
 func (e *RestFulExecutor) beat(writer http.ResponseWriter, request *http.Request) {
 	e.log.Info("心跳检测")
-	_, _ = writer.Write(returnGeneral())
+	_, _ = writer.Write(returnGeneralBytes())
 }
 
 // idleBeat to route path /idleBeat
@@ -247,17 +247,17 @@ func (e *RestFulExecutor) idleBeat(writer http.ResponseWriter, request *http.Req
 	param := &idleBeatReq{}
 	err := json.Unmarshal(req, &param)
 	if err != nil {
-		_, _ = writer.Write(returnIdleBeat(500))
+		_, _ = writer.Write(returnIdleBeatBytes(500))
 		e.log.Error("参数解析错误:" + string(req))
 		return
 	}
 	if e.runList.Exists(Int64ToStr(param.JobID)) {
-		_, _ = writer.Write(returnIdleBeat(500))
+		_, _ = writer.Write(returnIdleBeatBytes(500))
 		e.log.Error("idleBeat任务[" + Int64ToStr(param.JobID) + "]正在运行")
 		return
 	}
 	e.log.Info("忙碌检测任务参数:%v", param)
-	_, _ = writer.Write(returnGeneral())
+	_, _ = writer.Write(returnGeneralBytes())
 }
 
 /*****************  Logging  *********************/

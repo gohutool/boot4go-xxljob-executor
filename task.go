@@ -34,12 +34,12 @@ type Task struct {
 }
 
 // TaskFunc 任务执行函数
-type TaskFunc func(cxt context.Context, param *RunReq) string
+type TaskFunc func(cxt context.Context, param *RunReq) (string, error)
 
 // Run 运行任务
 func (t *Task) Run(callback func(code int64, msg string)) {
 	// cancel 实现长时间任务的Kill功能， 在长任务的Task中要配合cxt.Done():进行强行中断
-	// 可参考/exmpales/task/long_task.go
+	// 可参考/examples/task/long_task.go
 	defer func(cancel func()) {
 		if err := recover(); err != nil {
 			t.log.Error(t.Info()+" panic: %v", err)
@@ -48,9 +48,12 @@ func (t *Task) Run(callback func(code int64, msg string)) {
 			cancel()
 		}
 	}(t.Cancel)
-	msg := t.fn(t.Ext, t.Param)
-	callback(200, msg)
-	return
+	msg, err := t.fn(t.Ext, t.Param)
+	if err == nil {
+		callback(200, msg)
+	} else {
+		callback(500, "task exception:"+fmt.Sprintf("%v", err))
+	}
 }
 
 // Info 任务信息
