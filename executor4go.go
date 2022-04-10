@@ -28,6 +28,159 @@ const (
 	EXECUTOR4G_BUILD   = 0
 )
 
+/*****************  executor Engine  *********************/
+
+// executor 执行器
+type executor interface {
+	// Run 启动服务
+	Run() error
+	// Registry 注册执行器到调度中心
+	Registry() error
+	// Unregistry 从调度中心在注销执行器
+	Unregistry() error
+	// SetLogHandler 日志handler
+	SetLogHandler(handler LogHandler)
+	// Stop 停止服务
+	Stop()
+	// RequestCallback 执行后回调请求给调度中心
+	RequestCallback(task *Task, code int64, msg string)
+}
+
+// NewExecutor 创建执行器
+func NewExecutor(opts ...Option) *Executor {
+	return newExecutor(opts...)
+}
+
+func newExecutor(opts ...Option) *Executor {
+	options := newOptions(opts...)
+
+	if options.executorImpl == nil {
+		exec := &RestFulExecutor{}
+		exec.opts = options
+		return interface{}(exec).(*Executor)
+	} else {
+		return options.executorImpl
+	}
+}
+
+type Executor struct {
+	opts    Options
+	address string
+	regList *taskPool //注册任务列表
+	runList *taskPool //正在执行任务列表
+	log     log4go.Logger
+
+	logHandler LogHandler //日志查询handler
+}
+
+func (e *Executor) Init(opts ...Option) {
+	for _, o := range opts {
+		o(&e.opts)
+	}
+
+	e.log = e.opts.logger
+
+	e.regList = &taskPool{
+		data: make(map[string]*Task),
+	}
+	e.runList = &taskPool{
+		data: make(map[string]*Task),
+	}
+
+	e.address = e.opts.ExecutorIp + ":" + e.opts.ExecutorPort
+
+	e.log.Info("%v %v", EXECUTOR4G_VERSION, e.address)
+
+	go e.Registry()
+}
+
+// RegTask 注册任务
+func (e *Executor) RegTask(pattern string, task TaskFunc) {
+	var t = &Task{}
+	t.fn = task
+	e.regList.Set(pattern, t)
+	return
+}
+
+func (e *Executor) CancelTask(param *killReq) {
+	task := e.runList.Get(Int64ToStr(param.JobID))
+	task.Cancel()
+	e.runList.Del(Int64ToStr(param.JobID))
+}
+
+func (e *Executor) RunTask(param *RunReq,
+	onRunning func(task *Task, param *RunReq),
+	onSuccess func(task *Task, param *RunReq)) (*Task, error) {
+
+	//阻塞策略处理
+	if e.runList.Exists(Int64ToStr(param.JobID)) {
+		if param.ExecutorBlockStrategy == coverEarly { //覆盖之前调度
+			oldTask := e.runList.Get(Int64ToStr(param.JobID))
+			if oldTask != nil {
+				oldTask.Cancel()
+				e.runList.Del(Int64ToStr(oldTask.Id))
+			}
+		} else { //单机串行,丢弃后续调度 都进行阻塞
+			oldTask := e.runList.Get(Int64ToStr(param.JobID))
+			onRunning(oldTask, param)
+			return oldTask, e.log.Error("任务[" + Int64ToStr(param.JobID) + "]已经在运行了:" + param.ExecutorHandler)
+		}
+	}
+
+	cxt := context.Background()
+	task := e.regList.Get(param.ExecutorHandler)
+	if param.ExecutorTimeout > 0 {
+		task.Ext, task.Cancel = context.WithTimeout(cxt, time.Duration(param.ExecutorTimeout)*time.Second)
+	} else {
+		task.Ext, task.Cancel = context.WithCancel(cxt)
+	}
+	task.Id = param.JobID
+	task.Name = param.ExecutorHandler
+	task.Param = param
+	task.log = e.log
+
+	e.runList.Set(Int64ToStr(task.Id), task)
+	go task.Run(func(code int64, msg string) {
+		e.RequestCallback(task, code, msg)
+	})
+	e.log.Info("任务[" + Int64ToStr(param.JobID) + "]开始执行:" + param.ExecutorHandler)
+	onSuccess(task, param)
+	return task, nil
+}
+
+/*****************  interface methods, will be implemented by One Executor's sub class  *********************/
+
+// Run 运行执行器引擎
+/**
+在执行器引擎里必须处理来至于调度中心的一下命令
+run
+kill
+log
+beat
+idleBeat
+*/
+func (e *Executor) Run() {
+}
+
+func (e *Executor) RequestCallback(task *Task, code int64, msg string) {
+
+}
+
+// Stop 停止服务
+func (e *Executor) Stop() {
+	e.UnRegistry()
+}
+
+// Registry 注册执行器到调度中心
+func (e *Executor) Registry() error {
+	return nil
+}
+
+// UnRegistry 从调度中心在注销执行器
+func (e *Executor) UnRegistry() error {
+	return nil
+}
+
 //通用响应
 type res struct {
 	Code int64       `json:"code"` // 200 表示正常、其他失败
@@ -259,153 +412,4 @@ func SetLogger(l log4go.Logger) Option {
 	return func(o *Options) {
 		o.logger = l
 	}
-}
-
-/*****************  executor Engine  *********************/
-
-// executor 执行器
-type executor interface {
-	// Run 启动服务
-	Run() error
-	// Registry 注册执行器到调度中心
-	Registry() error
-	// Unregistry 从调度中心在注销执行器
-	Unregistry() error
-	// SetLogHandler 日志handler
-	SetLogHandler(handler LogHandler)
-	// Stop 停止服务
-	Stop()
-	// RequestCallback 执行后回调请求给调度中心
-	RequestCallback(task *Task, code int64, msg string)
-}
-
-// NewExecutor 创建执行器
-func NewExecutor(opts ...Option) *Executor {
-	return newExecutor(opts...)
-}
-
-func newExecutor(opts ...Option) *Executor {
-	options := newOptions(opts...)
-
-	if options.executorImpl == nil {
-		exec := &RestFulExecutor{}
-		exec.opts = options
-		return interface{}(exec).(*Executor)
-	} else {
-		return options.executorImpl
-	}
-}
-
-type Executor struct {
-	opts    Options
-	address string
-	regList *taskPool //注册任务列表
-	runList *taskPool //正在执行任务列表
-	log     log4go.Logger
-
-	logHandler LogHandler //日志查询handler
-}
-
-func (e *Executor) Init(opts ...Option) {
-	for _, o := range opts {
-		o(&e.opts)
-	}
-
-	e.log = e.opts.logger
-	e.regList = &taskPool{
-		data: make(map[string]*Task),
-	}
-	e.runList = &taskPool{
-		data: make(map[string]*Task),
-	}
-	e.address = e.opts.ExecutorIp + ":" + e.opts.ExecutorPort
-
-	go e.Registry()
-}
-
-// RegTask 注册任务
-func (e *Executor) RegTask(pattern string, task TaskFunc) {
-	var t = &Task{}
-	t.fn = task
-	e.regList.Set(pattern, t)
-	return
-}
-
-func (e *Executor) CancelTask(param *killReq) {
-	task := e.runList.Get(Int64ToStr(param.JobID))
-	task.Cancel()
-	e.runList.Del(Int64ToStr(param.JobID))
-}
-
-func (e *Executor) RunTask(param *RunReq,
-	onRunning func(task *Task, param *RunReq),
-	onSuccess func(task *Task, param *RunReq)) (*Task, error) {
-
-	//阻塞策略处理
-	if e.runList.Exists(Int64ToStr(param.JobID)) {
-		if param.ExecutorBlockStrategy == coverEarly { //覆盖之前调度
-			oldTask := e.runList.Get(Int64ToStr(param.JobID))
-			if oldTask != nil {
-				oldTask.Cancel()
-				e.runList.Del(Int64ToStr(oldTask.Id))
-			}
-		} else { //单机串行,丢弃后续调度 都进行阻塞
-			oldTask := e.runList.Get(Int64ToStr(param.JobID))
-			onRunning(oldTask, param)
-			return oldTask, e.log.Error("任务[" + Int64ToStr(param.JobID) + "]已经在运行了:" + param.ExecutorHandler)
-		}
-	}
-
-	cxt := context.Background()
-	task := e.regList.Get(param.ExecutorHandler)
-	if param.ExecutorTimeout > 0 {
-		task.Ext, task.Cancel = context.WithTimeout(cxt, time.Duration(param.ExecutorTimeout)*time.Second)
-	} else {
-		task.Ext, task.Cancel = context.WithCancel(cxt)
-	}
-	task.Id = param.JobID
-	task.Name = param.ExecutorHandler
-	task.Param = param
-	task.log = e.log
-
-	e.runList.Set(Int64ToStr(task.Id), task)
-	go task.Run(func(code int64, msg string) {
-		e.RequestCallback(task, code, msg)
-	})
-	e.log.Info("任务[" + Int64ToStr(param.JobID) + "]开始执行:" + param.ExecutorHandler)
-	onSuccess(task, param)
-	return task, nil
-}
-
-/*****************  interface methods, will be implemented by One Executor's sub class  *********************/
-
-// Run 运行执行器引擎
-/**
-在执行器引擎里必须处理来至于调度中心的一下命令
-run
-kill
-log
-beat
-idleBeat
-*/
-func (e *Executor) Run() {
-}
-
-func (e *Executor) RequestCallback(task *Task, code int64, msg string) {
-
-}
-
-// Stop 停止服务
-func (e *Executor) Stop() {
-	e.UnRegistry()
-}
-
-// Registry 注册执行器到调度中心
-func (e *Executor) Registry() error {
-	return nil
-}
-
-// UnRegistry 从调度中心在注销执行器
-func (e *Executor) UnRegistry() error {
-	return nil
 }
